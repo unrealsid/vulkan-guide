@@ -5,6 +5,7 @@
 
 #include <vk_types.h>
 #include <vector>
+#include "deletion_queue.h"
 
 class VulkanEngine 
 {
@@ -59,6 +60,15 @@ public:
 	VkSemaphore _presentSemaphore, _renderSemaphore;
 	VkFence _renderFence;
 
+	VkPipelineLayout _trianglePipelineLayout;
+
+	VkPipeline _trianglePipeline;
+	VkPipeline _redTrianglePipeline;
+
+	int _selectedShader{ 0 };
+
+	DeletionQueue _mainDeletionQueue;
+
 private:
 	void init_vulkan();
 
@@ -71,4 +81,9 @@ private:
 	void init_framebuffers();
 
 	void init_sync_structures();
+
+	void init_pipelines();
+
+	//loads a shader module from a spir-v file. Returns false if it errors
+	bool load_shader_module(const char* filePath, VkShaderModule* outShaderModule);
 };

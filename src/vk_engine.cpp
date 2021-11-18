@@ -7,6 +7,9 @@
 #include <vk_initializers.h>
 #include "VkBootstrap.h"
 #include <iostream>
+#include <fstream>
+
+#include "vk_pipeline.h"
 
 //we want to immediately abort when there is an error. In normal engines this would give an error message to the user, or perform a dump of state.
 #define VK_CHECK(x)                                                 \
@@ -50,32 +53,24 @@ void VulkanEngine::init()
 	init_framebuffers();
 
 	init_sync_structures();
+
+	init_pipelines();
 	
 	//everything went fine
 	_isInitialized = true;
 }
 void VulkanEngine::cleanup()
 {	
-	if (_isInitialized) 
-	{
-		vkDestroyCommandPool(_device, _commandPool, nullptr);
+	if (_isInitialized) {
 
-		vkDestroySwapchainKHR(_device, _swapchain, nullptr);
+		//make sure the GPU has stopped doing its things
+		vkWaitForFences(_device, 1, &_renderFence, true, 1000000000);
 
-		//destroy the main renderpass
-		vkDestroyRenderPass(_device, _renderPass, nullptr);
+		_mainDeletionQueue.flush();
 
-		//destroy swapchain resources
-		for (int i = 0; i < _swapchainImageViews.size(); i++) 
-		{
-			vkDestroyFramebuffer(_device, _framebuffers[i], nullptr);
-			vkDestroyImageView(_device, _swapchainImageViews[i], nullptr);
-		}
+		vkDestroySurfaceKHR(_instance, _surface, nullptr);
 
 		vkDestroyDevice(_device, nullptr);
-		vkDestroySurfaceKHR(_instance, _surface, nullptr);
-		vkb::destroy_debug_utils_messenger(_instance, _debug_messenger);
-
 		vkDestroyInstance(_instance, nullptr);
 
 		SDL_DestroyWindow(_window);
@@ -130,6 +125,18 @@ void VulkanEngine::draw()
 	rpInfo.pClearValues = &clearValue;
 
 	vkCmdBeginRenderPass(cmd, &rpInfo, VK_SUBPASS_CONTENTS_INLINE);
+
+	//once we start adding rendering commands, they will go here
+	if (_selectedShader == 0)
+	{
+		vkCmdBindPipeline(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, _trianglePipeline);
+	}
+	else
+	{
+		vkCmdBindPipeline(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, _redTrianglePipeline);
+	}
+
+	vkCmdDraw(cmd, 3, 1, 0, 0);
 
 	//finalize the render pass
 	vkCmdEndRenderPass(cmd);
@@ -197,6 +204,17 @@ void VulkanEngine::run()
 			if (e.type == SDL_QUIT)
 			{
 				bQuit = true;
+			}
+			else if (e.type == SDL_KEYDOWN)
+			{
+				if (e.key.keysym.sym == SDLK_SPACE)
+				{
+					_selectedShader += 1;
+					if (_selectedShader > 1)
+					{
+						_selectedShader = 0;
+					}
+				}
 			}
 		}
 
@@ -267,6 +285,10 @@ void VulkanEngine::init_swapchain()
 	_swapchainImageViews = vkbSwapchain.get_image_views().value();
 
 	_swapchainImageFormat = vkbSwapchain.image_format;
+
+	_mainDeletionQueue.push_function([=]() {
+		vkDestroySwapchainKHR(_device, _swapchain, nullptr);
+		});
 }
 
 void VulkanEngine::init_commands()
@@ -281,6 +303,10 @@ void VulkanEngine::init_commands()
 	VkCommandBufferAllocateInfo cmdAllocInfo = vkinit::command_buffer_allocate_info(_commandPool, 1);
 
 	VK_CHECK(vkAllocateCommandBuffers(_device, &cmdAllocInfo, &_mainCommandBuffer));
+
+	_mainDeletionQueue.push_function([=]() {
+		vkDestroyCommandPool(_device, _commandPool, nullptr);
+		});
 }
 
 void VulkanEngine::init_default_renderpass()
@@ -328,6 +354,10 @@ void VulkanEngine::init_default_renderpass()
 
 
 	VK_CHECK(vkCreateRenderPass(_device, &render_pass_info, nullptr, &_renderPass));
+
+	_mainDeletionQueue.push_function([=]() {
+		vkDestroyRenderPass(_device, _renderPass, nullptr);
+		});
 }
 
 void VulkanEngine::init_framebuffers()
@@ -353,6 +383,11 @@ void VulkanEngine::init_framebuffers()
 
 		fb_info.pAttachments = &_swapchainImageViews[i];
 		VK_CHECK(vkCreateFramebuffer(_device, &fb_info, nullptr, &_framebuffers[i]));
+
+		_mainDeletionQueue.push_function([=]() {
+			vkDestroyFramebuffer(_device, _framebuffers[i], nullptr);
+			vkDestroyImageView(_device, _swapchainImageViews[i], nullptr);
+			});
 	}
 }
 
@@ -377,4 +412,179 @@ void VulkanEngine::init_sync_structures()
 
 	VK_CHECK(vkCreateSemaphore(_device, &semaphoreCreateInfo, nullptr, &_presentSemaphore));
 	VK_CHECK(vkCreateSemaphore(_device, &semaphoreCreateInfo, nullptr, &_renderSemaphore));
+
+	// enqueue the destruction of semaphores
+	_mainDeletionQueue.push_function([=]() {
+	vkDestroySemaphore(_device, _presentSemaphore, nullptr);
+	vkDestroySemaphore(_device, _renderSemaphore, nullptr);
+		});
+}
+
+void VulkanEngine::init_pipelines()
+{
+	//compile colored triangle modules
+	VkShaderModule triangleFragShader;
+	if (!load_shader_module("../../shaders/colored_triangle.frag.spv", &triangleFragShader))
+	{
+		std::cout << "Error when building the triangle fragment shader module" << std::endl;
+	}
+	else 
+	{
+		std::cout << "Triangle fragment shader successfully loaded" << std::endl;
+	}
+
+	VkShaderModule triangleVertexShader;
+	if (!load_shader_module("../../shaders/colored_triangle.vert.spv", &triangleVertexShader))
+	{
+		std::cout << "Error when building the triangle vertex shader module" << std::endl;
+	}
+	else 
+	{
+		std::cout << "Triangle vertex shader successfully loaded" << std::endl;
+	}
+
+	//compile red triangle modules
+	VkShaderModule redTriangleFragShader;
+	if (!load_shader_module("../../shaders/triangle.frag.spv", &redTriangleFragShader))
+	{
+		std::cout << "Error when building the triangle fragment shader module" << std::endl;
+	}
+	else 
+	{
+		std::cout << "Red Triangle fragment shader successfully loaded" << std::endl;
+	}
+
+	VkShaderModule redTriangleVertShader;
+	if (!load_shader_module("../../shaders/triangle.vert.spv", &redTriangleVertShader))
+	{
+		std::cout << "Error when building the triangle vertex shader module" << std::endl;
+	}
+	else
+	{
+		std::cout << "Red Triangle vertex shader successfully loaded" << std::endl;
+	}
+
+	//build the pipeline layout that controls the inputs/outputs of the shader
+	//we are not using descriptor sets or other systems yet, so no need to use anything other than empty default
+	VkPipelineLayoutCreateInfo pipeline_layout_info = vkinit::pipeline_layout_create_info();
+
+	VK_CHECK(vkCreatePipelineLayout(_device, &pipeline_layout_info, nullptr, &_trianglePipelineLayout));
+
+	//build the stage-create-info for both vertex and fragment stages. This lets the pipeline know the shader modules per stage
+	PipelineBuilder pipelineBuilder;
+
+	pipelineBuilder._shaderStages.push_back(
+		vkinit::pipeline_shader_stage_create_info(VK_SHADER_STAGE_VERTEX_BIT, triangleVertexShader));
+
+	pipelineBuilder._shaderStages.push_back(
+		vkinit::pipeline_shader_stage_create_info(VK_SHADER_STAGE_FRAGMENT_BIT, triangleFragShader));
+
+
+	//vertex input controls how to read vertices from vertex buffers. We aren't using it yet
+	pipelineBuilder._vertexInputInfo = vkinit::vertex_input_state_create_info();
+
+	//input assembly is the configuration for drawing triangle lists, strips, or individual points.
+	//we are just going to draw triangle list
+	pipelineBuilder._inputAssembly = vkinit::input_assembly_create_info(VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST);
+
+	//build viewport and scissor from the swapchain extents
+	pipelineBuilder._viewport.x = 0.0f;
+	pipelineBuilder._viewport.y = 0.0f;
+	pipelineBuilder._viewport.width = (float)_windowExtent.width;
+	pipelineBuilder._viewport.height = (float)_windowExtent.height;
+	pipelineBuilder._viewport.minDepth = 0.0f;
+	pipelineBuilder._viewport.maxDepth = 1.0f;
+
+	pipelineBuilder._scissor.offset = { 0, 0 };
+	pipelineBuilder._scissor.extent = _windowExtent;
+
+	//configure the rasterizer to draw filled triangles
+	pipelineBuilder._rasterizer = vkinit::rasterization_state_create_info(VK_POLYGON_MODE_FILL);
+
+	//we don't use multisampling, so just run the default one
+	pipelineBuilder._multisampling = vkinit::multisampling_state_create_info();
+
+	//a single blend attachment with no blending and writing to RGBA
+	pipelineBuilder._colorBlendAttachment = vkinit::color_blend_attachment_state();
+
+	//use the triangle layout we created
+	pipelineBuilder._pipelineLayout = _trianglePipelineLayout;
+
+	//finally build the pipeline
+	_trianglePipeline = pipelineBuilder.build_pipeline(_device, _renderPass);
+
+	//clear the shader stages for the builder
+	pipelineBuilder._shaderStages.clear();
+
+	//add the other shaders
+	pipelineBuilder._shaderStages.push_back(
+		vkinit::pipeline_shader_stage_create_info(VK_SHADER_STAGE_VERTEX_BIT, redTriangleVertShader));
+
+	pipelineBuilder._shaderStages.push_back(
+		vkinit::pipeline_shader_stage_create_info(VK_SHADER_STAGE_FRAGMENT_BIT, redTriangleFragShader));
+
+	//build the red triangle pipeline
+	_redTrianglePipeline = pipelineBuilder.build_pipeline(_device, _renderPass);
+
+	//destroy all shader modules, outside of the queue
+	vkDestroyShaderModule(_device, redTriangleVertShader, nullptr);
+	vkDestroyShaderModule(_device, redTriangleFragShader, nullptr);
+	vkDestroyShaderModule(_device, triangleFragShader, nullptr);
+	vkDestroyShaderModule(_device, triangleVertexShader, nullptr);
+
+	_mainDeletionQueue.push_function([=]() {
+		//destroy the 2 pipelines we have created
+		vkDestroyPipeline(_device, _redTrianglePipeline, nullptr);
+		vkDestroyPipeline(_device, _trianglePipeline, nullptr);
+
+		//destroy the pipeline layout that they use
+		vkDestroyPipelineLayout(_device, _trianglePipelineLayout, nullptr);
+		});
+}
+
+bool VulkanEngine::load_shader_module(const char* filePath, VkShaderModule* outShaderModule)
+{
+	//open the file. With cursor at the end
+	std::ifstream file(filePath, std::ios::ate | std::ios::binary);
+
+	if (!file.is_open()) 
+	{
+		return false;
+	}
+
+	//find what the size of the file is by looking up the location of the cursor
+	//because the cursor is at the end, it gives the size directly in bytes
+	size_t fileSize = (size_t)file.tellg();
+
+	//spirv expects the buffer to be on uint32, so make sure to reserve an int vector big enough for the entire file
+	std::vector<uint32_t> buffer(fileSize / sizeof(uint32_t));
+
+	//put file cursor at beginning
+	file.seekg(0);
+
+	//load the entire file into the buffer
+	file.read((char*)buffer.data(), fileSize);
+
+	//now that the file is loaded into the buffer, we can close it
+	file.close();
+
+	//create a new shader module, using the buffer we loaded
+	VkShaderModuleCreateInfo createInfo = {};
+	createInfo.sType = VK_STRUCTURE_TYPE_SHADER_MODULE_CREATE_INFO;
+	createInfo.pNext = nullptr;
+
+	//codeSize has to be in bytes, so multiply the ints in the buffer by size of int to know the real size of the buffer
+	createInfo.codeSize = buffer.size() * sizeof(uint32_t);
+	createInfo.pCode = buffer.data();
+
+	//check that the creation goes well.
+	VkShaderModule shaderModule;
+	if (vkCreateShaderModule(_device, &createInfo, nullptr, &shaderModule) != VK_SUCCESS) 
+	{
+		return false;
+	}
+	*outShaderModule = shaderModule;
+	return true;
+
+	return true;
 }
