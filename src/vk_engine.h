@@ -6,6 +6,8 @@
 #include <vk_types.h>
 #include <vector>
 #include "deletion_queue.h"
+#include "vk_mem_alloc.h"
+#include "vk_mesh.h"
 
 class VulkanEngine 
 {
@@ -69,6 +71,11 @@ public:
 
 	DeletionQueue _mainDeletionQueue;
 
+	VmaAllocator _allocator;
+
+	VkPipeline _meshPipeline;
+	Mesh _triangleMesh;
+
 private:
 	void init_vulkan();
 
@@ -86,4 +93,8 @@ private:
 
 	//loads a shader module from a spir-v file. Returns false if it errors
 	bool load_shader_module(const char* filePath, VkShaderModule* outShaderModule);
+
+	void load_meshes();
+
+	void upload_mesh(Mesh& mesh);
 };
