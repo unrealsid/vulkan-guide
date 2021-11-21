@@ -78,6 +78,15 @@ public:
 
 	VkPipelineLayout _meshPipelineLayout;
 
+	Mesh _monkeyMesh;
+
+	VkImageView _depthImageView;
+	AllocatedImage _depthImage;
+
+	//the format for the depth image
+	VkFormat _depthFormat;
+
+
 private:
 	void init_vulkan();
 
