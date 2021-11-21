@@ -76,6 +76,8 @@ public:
 	VkPipeline _meshPipeline;
 	Mesh _triangleMesh;
 
+	VkPipelineLayout _meshPipelineLayout;
+
 private:
 	void init_vulkan();
 
