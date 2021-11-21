@@ -9,6 +9,10 @@
 #include "vk_mem_alloc.h"
 #include "vk_mesh.h"
 #include "vk_object.h"
+#include "vk_frame.h"
+
+//number of frames to overlap when rendering
+constexpr unsigned int FRAME_OVERLAP = 2;
 
 class VulkanEngine 
 {
@@ -106,6 +110,11 @@ public:
 	//our draw function
 	void draw_objects(VkCommandBuffer cmd, RenderObject* first, int count);
 
+	//frame storage
+	FrameData _frames[FRAME_OVERLAP];
+
+	//getter for the frame we are rendering to right now.
+	FrameData& get_current_frame();
 
 private:
 	void init_vulkan();
