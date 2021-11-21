@@ -147,9 +147,8 @@ void VulkanEngine::draw()
 	else
 	{
 		vkCmdBindPipeline(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, _redTrianglePipeline);
+		vkCmdDraw(cmd, 3, 1, 0, 0);
 	}
-
-	vkCmdDraw(cmd, 3, 1, 0, 0);
 
 	//finalize the render pass
 	vkCmdEndRenderPass(cmd);
@@ -666,6 +665,7 @@ void VulkanEngine::upload_mesh(Mesh& mesh)
 	//allocate vertex buffer
 	VkBufferCreateInfo bufferInfo = {};
 	bufferInfo.sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO;
+	bufferInfo.pNext = nullptr;
 	//this is the total size, in bytes, of the buffer we are allocating
 	bufferInfo.size = mesh._vertices.size() * sizeof(Vertex);
 	//this buffer is going to be used as a Vertex Buffer
@@ -687,4 +687,12 @@ void VulkanEngine::upload_mesh(Mesh& mesh)
 
 		vmaDestroyBuffer(_allocator, mesh._vertexBuffer._buffer, mesh._vertexBuffer._allocation);
 		});
+
+	//copy vertex data
+	void* data;
+	vmaMapMemory(_allocator, mesh._vertexBuffer._allocation, &data);
+
+	memcpy(data, mesh._vertices.data(), mesh._vertices.size() * sizeof(Vertex));
+
+	vmaUnmapMemory(_allocator, mesh._vertexBuffer._allocation);
 }
