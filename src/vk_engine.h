@@ -10,6 +10,7 @@
 #include "vk_mesh.h"
 #include "vk_object.h"
 #include "vk_frame.h"
+#include "vk_gpu_scene_data.h"
 
 //number of frames to overlap when rendering
 constexpr unsigned int FRAME_OVERLAP = 2;
@@ -113,8 +114,13 @@ public:
 	//frame storage
 	FrameData _frames[FRAME_OVERLAP];
 
-	//getter for the frame we are rendering to right now.
-	FrameData& get_current_frame();
+	VkDescriptorSetLayout _globalSetLayout;
+	VkDescriptorPool _descriptorPool;
+
+	VkPhysicalDeviceProperties _gpuProperties;
+
+	GPUSceneData _sceneParameters;
+	AllocatedBuffer _sceneParameterBuffer;
 
 private:
 	void init_vulkan();
@@ -133,10 +139,19 @@ private:
 
 	void init_scene();
 
+	void init_descriptors();
+
 	//loads a shader module from a spir-v file. Returns false if it errors
 	bool load_shader_module(const char* filePath, VkShaderModule* outShaderModule);
 
 	void load_meshes();
 
 	void upload_mesh(Mesh& mesh);
+
+	size_t pad_uniform_buffer_size(size_t originalSize);
+
+	//getter for the frame we are rendering to right now.
+	FrameData& get_current_frame();
+
+	AllocatedBuffer create_buffer(size_t allocSize, VkBufferUsageFlags usage, VmaMemoryUsage memoryUsage);
 };
