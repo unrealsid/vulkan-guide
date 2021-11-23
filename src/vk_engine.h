@@ -88,12 +88,16 @@ public:
 	VkImageView _depthImageView;
 	AllocatedImage _depthImage;
 
+	VkDescriptorSetLayout _globalSetLayout;
+	VkDescriptorPool _descriptorPool;
+
 	//the format for the depth image
 	VkFormat _depthFormat;
 
 	//default array of renderable objects
 	std::vector<RenderObject> _renderables;
 
+private:
 	std::unordered_map<std::string, Material> _materials;
 	std::unordered_map<std::string, Mesh> _meshes;
 	//functions
@@ -116,7 +120,6 @@ public:
 	//getter for the frame we are rendering to right now.
 	FrameData& get_current_frame();
 
-private:
 	void init_vulkan();
 
 	void init_swapchain();
@@ -139,4 +142,8 @@ private:
 	void load_meshes();
 
 	void upload_mesh(Mesh& mesh);
+
+	AllocatedBuffer create_buffer(size_t allocSize, VkBufferUsageFlags usage, VmaMemoryUsage memoryUsage);
+
+	void init_descriptors();
 };
