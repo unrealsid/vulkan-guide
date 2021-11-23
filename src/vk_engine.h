@@ -10,6 +10,7 @@
 #include "vk_mesh.h"
 #include "vk_object.h"
 #include "vk_frame.h"
+#include "vk_scene_data.h"
 
 //number of frames to overlap when rendering
 constexpr unsigned int FRAME_OVERLAP = 2;
@@ -37,6 +38,7 @@ public:
 	//run main loop
 	void run();
 
+private:
 	VkInstance _instance;
 	VkDebugUtilsMessengerEXT _debug_messenger;
 	VkPhysicalDevice _chosenGPU;
@@ -94,10 +96,14 @@ public:
 	//the format for the depth image
 	VkFormat _depthFormat;
 
+	VkPhysicalDeviceProperties _gpuProperties;
+
+	GPUSceneData _sceneParameters;
+	AllocatedBuffer _sceneParameterBuffer;
+
 	//default array of renderable objects
 	std::vector<RenderObject> _renderables;
 
-private:
 	std::unordered_map<std::string, Material> _materials;
 	std::unordered_map<std::string, Mesh> _meshes;
 	//functions
@@ -113,6 +119,8 @@ private:
 
 	//our draw function
 	void draw_objects(VkCommandBuffer cmd, RenderObject* first, int count);
+
+	size_t pad_uniform_buffer_size(size_t originalSize);
 
 	//frame storage
 	FrameData _frames[FRAME_OVERLAP];
