@@ -868,7 +868,8 @@ void VulkanEngine::init_descriptors()
 	//create a descriptor pool that will hold 10 uniform buffers
 	std::vector<VkDescriptorPoolSize> sizes =
 	{
-		{ VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, 10 }
+		{ VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, 10 },
+		{ VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC, 10 }
 	};
 
 	VkDescriptorPoolCreateInfo pool_info = {};
@@ -884,9 +885,9 @@ void VulkanEngine::init_descriptors()
 	VkDescriptorSetLayoutBinding cameraBind = vkinit::descriptorset_layout_binding(VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, VK_SHADER_STAGE_VERTEX_BIT, 0);
 
 	//binding for scene data at 1
-	VkDescriptorSetLayoutBinding sceneBind = vkinit::descriptorset_layout_binding(VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT, 1);
+	VkDescriptorSetLayoutBinding sceneBind = vkinit::descriptorset_layout_binding(VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC, VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT, 1);
 
-	VkDescriptorSetLayoutBinding bindings[] = { cameraBind,sceneBind };
+	VkDescriptorSetLayoutBinding bindings[] = { cameraBind, sceneBind };
 
 	VkDescriptorSetLayoutCreateInfo setinfo = {};
 	setinfo.bindingCount = 2;
@@ -921,12 +922,12 @@ void VulkanEngine::init_descriptors()
 
 		VkDescriptorBufferInfo sceneInfo;
 		sceneInfo.buffer = _sceneParameterBuffer._buffer;
-		sceneInfo.offset = pad_uniform_buffer_size(sizeof(GPUSceneData)) * i;
+		sceneInfo.offset = 0;
 		sceneInfo.range = sizeof(GPUSceneData);
 
 		VkWriteDescriptorSet cameraWrite = vkinit::write_descriptor_buffer(VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, _frames[i].globalDescriptor, &cameraInfo, 0);
 
-		VkWriteDescriptorSet sceneWrite = vkinit::write_descriptor_buffer(VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, _frames[i].globalDescriptor, &sceneInfo, 1);
+		VkWriteDescriptorSet sceneWrite = vkinit::write_descriptor_buffer(VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC, _frames[i].globalDescriptor, &sceneInfo, 1);
 
 		VkWriteDescriptorSet setWrites[] = { cameraWrite,sceneWrite };
 
@@ -1022,8 +1023,10 @@ void VulkanEngine::draw_objects(VkCommandBuffer cmd, RenderObject* first, int co
 			vkCmdBindPipeline(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, object.material->pipeline);
 			lastMaterial = object.material;
 
-			//bind the descriptor set when changing pipeline
-			vkCmdBindDescriptorSets(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, object.material->pipelineLayout, 0, 1, &get_current_frame().globalDescriptor, 0, nullptr);
+			//offset for our scene buffer
+			uint32_t uniform_offset = pad_uniform_buffer_size(sizeof(GPUSceneData)) * frameIndex;
+
+			vkCmdBindDescriptorSets(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, object.material->pipelineLayout, 0, 1, &get_current_frame().globalDescriptor, 1, &uniform_offset);
 		}
 
 		MeshPushConstants constants;
