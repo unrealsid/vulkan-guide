@@ -22,6 +22,10 @@ namespace vkinit {
 
 	VkWriteDescriptorSet write_descriptor_buffer(VkDescriptorType type, VkDescriptorSet dstSet, VkDescriptorBufferInfo* bufferInfo, uint32_t binding);
 
+	VkCommandBufferBeginInfo command_buffer_begin_info(VkCommandBufferUsageFlags flags);
+
+	VkSubmitInfo submit_info(VkCommandBuffer* cmd);
+
 	VkPipelineShaderStageCreateInfo pipeline_shader_stage_create_info(VkShaderStageFlagBits stage, VkShaderModule shaderModule);
 
 	VkPipelineVertexInputStateCreateInfo vertex_input_state_create_info();
@@ -41,6 +45,8 @@ namespace vkinit {
 	VkImageViewCreateInfo imageview_create_info(VkFormat format, VkImage image, VkImageAspectFlags aspectFlags);
 
 	VkPipelineDepthStencilStateCreateInfo depth_stencil_create_info(bool bDepthTest, bool bDepthWrite, VkCompareOp compareOp);
+
+
 
 
 }

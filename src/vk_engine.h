@@ -11,6 +11,7 @@
 #include "vk_object.h"
 #include "vk_frame.h"
 #include "vk_scene_data.h"
+#include "vk_upload_context.h"
 
 //number of frames to overlap when rendering
 constexpr unsigned int FRAME_OVERLAP = 2;
@@ -108,6 +109,9 @@ private:
 
 	std::unordered_map<std::string, Material> _materials;
 	std::unordered_map<std::string, Mesh> _meshes;
+
+	UploadContext _uploadContext;
+	void immediate_submit(std::function<void(VkCommandBuffer cmd)>&& function);
 	//functions
 
 	//create material and add it to the map
