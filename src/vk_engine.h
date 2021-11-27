@@ -91,6 +91,8 @@ private:
 	AllocatedImage _depthImage;
 
 	VkDescriptorSetLayout _globalSetLayout;
+	VkDescriptorSetLayout _objectSetLayout;
+
 	VkDescriptorPool _descriptorPool;
 
 	//the format for the depth image
