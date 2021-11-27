@@ -5,6 +5,7 @@
 
 #include <vk_types.h>
 #include <vector>
+#include <map>
 #include "deletion_queue.h"
 #include "vk_mem_alloc.h"
 #include "vk_mesh.h"
@@ -12,6 +13,7 @@
 #include "vk_frame.h"
 #include "vk_scene_data.h"
 #include "vk_upload_context.h"
+#include "vk_textures.h"
 
 //number of frames to overlap when rendering
 constexpr unsigned int FRAME_OVERLAP = 2;
@@ -39,7 +41,8 @@ public:
 	//run main loop
 	void run();
 
-private:
+	AllocatedBuffer create_buffer(size_t allocSize, VkBufferUsageFlags usage, VmaMemoryUsage memoryUsage);
+
 	VkInstance _instance;
 	VkDebugUtilsMessengerEXT _debug_messenger;
 	VkPhysicalDevice _chosenGPU;
@@ -134,6 +137,10 @@ private:
 	//getter for the frame we are rendering to right now.
 	FrameData& get_current_frame();
 
+	//texture hashmap
+	std::unordered_map<std::string, Texture> _loadedTextures;
+
+private: 
 	void init_vulkan();
 
 	void init_swapchain();
@@ -155,9 +162,9 @@ private:
 
 	void load_meshes();
 
-	void upload_mesh(Mesh& mesh);
+	void load_images();
 
-	AllocatedBuffer create_buffer(size_t allocSize, VkBufferUsageFlags usage, VmaMemoryUsage memoryUsage);
+	void upload_mesh(Mesh& mesh);
 
 	void init_descriptors();
 };

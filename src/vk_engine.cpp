@@ -68,6 +68,8 @@ void VulkanEngine::init()
 
 	load_meshes();
 
+	load_images();
+
 	init_scene();
 	
 	//everything went fine
@@ -814,6 +816,18 @@ void VulkanEngine::load_meshes()
 	//note that we are copying them. Eventually we will delete the hardcoded _monkey and _triangle meshes, so it's no problem now.
 	_meshes["monkey"] = _monkeyMesh;
 	_meshes["triangle"] = _triangleMesh;
+}
+
+void VulkanEngine::load_images()
+{
+	Texture lostEmpire;
+
+	vkutil::load_image_from_file(this, "../../assets/lost_empire-RGBA.png", lostEmpire.image);
+
+	VkImageViewCreateInfo imageinfo = vkinit::imageview_create_info(VK_FORMAT_R8G8B8A8_SRGB, lostEmpire.image._image, VK_IMAGE_ASPECT_COLOR_BIT);
+	vkCreateImageView(_device, &imageinfo, nullptr, &lostEmpire.imageView);
+
+	_loadedTextures["empire_diffuse"] = lostEmpire;
 }
 
 void VulkanEngine::upload_mesh(Mesh& mesh)
