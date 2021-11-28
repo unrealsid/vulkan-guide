@@ -140,6 +140,8 @@ public:
 	//texture hashmap
 	std::unordered_map<std::string, Texture> _loadedTextures;
 
+	VkDescriptorSetLayout _singleTextureSetLayout;
+
 private: 
 	void init_vulkan();
 
